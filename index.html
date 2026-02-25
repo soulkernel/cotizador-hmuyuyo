@@ -1,4 +1,4 @@
- <!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
@@ -573,7 +573,7 @@
           <div class="m-kpi"><div class="t">IVA 15%</div><div class="v" id="mk_iva">—</div></div>
           <div class="m-kpi total"><div class="t">TOTAL</div><div class="v" id="mk_total">—</div></div>
         </div>
-        <button class="m-btn-sm" onclick="mOpenDescModal()" style="width:100%;margin-top:4px" id="mk_desc_btn">
+        <button class="m-btn-sm" onclick="mOpenDescModal()" style="width:100%;margin-top:4px">
           🏷️ Descuento: <span id="mk_desc_label">sin descuento</span>
         </button>
       </div>
@@ -1004,17 +1004,17 @@
     setKpi("mk_iva",   money(t.iva));
     setKpi("mk_total", money(t.total));
 
-    // KPI descuento: mostrar solo si hay descuento activo
+    // KPI descuento
     const descBox = $("mk_desc_box");
     if(descBox) descBox.style.display = (mDiscountEnabled && mDiscountPct > 0) ? "" : "none";
-    setKpi("mk_desc", money(t.descuento));
+    setKpi("mk_desc", `-${money(t.descuento)}`);
 
     // Etiqueta botón descuento
     const lbl = $("mk_desc_label");
     if(lbl) lbl.textContent = (mDiscountEnabled && mDiscountPct > 0) ? `${mDiscountPct}% aplicado` : "sin descuento";
   }
 
-  // ── Funciones del modal de descuento ──────────────────────
+  // ── Modal descuento ──────────────────────────────────────
   window.mOpenDescModal = function(){
     $("m_descNum").value   = String(mDiscountPct);
     $("m_descRange").value = String(mDiscountPct);
@@ -1197,10 +1197,10 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
       doc.setTextColor(color); doc.text(String(text??"—"),x,ty,{align});
     };
     const hline=(ty,color="#111111",lw=0.4)=>{
-      doc.setDrawColor(color);doc.setLineWidth(lw);doc.line(ML,ty,W-MR,ty);
+      doc.setDrawColor(color); doc.setLineWidth(lw); doc.line(ML,ty,W-MR,ty);
     };
     const box=(x,by,w,h,fill="#ffffff",stroke="#cccccc")=>{
-      doc.setFillColor(fill);doc.setDrawColor(stroke);doc.setLineWidth(0.3);
+      doc.setFillColor(fill); doc.setDrawColor(stroke); doc.setLineWidth(0.3);
       doc.roundedRect(x,by,w,h,2,2,"FD");
     };
 
@@ -1211,8 +1211,8 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     txt(`Contacto: ${CONTACT_EMAIL}  ·  WhatsApp: ${CONTACT_WA1} / ${CONTACT_WA2}`,ML,y,8,false,"#333333"); y+=4;
     txt(`Horarios: Check-in ${CHECKIN}  ·  Check-out ${CHECKOUT}`,ML,y,8,false,"#333333"); y+=6;
 
-    // Dos bloques meta
-    const hW=CW/2-2, bH=hasDisc?40:36;
+    // Dos bloques meta lado a lado
+    const hW=CW/2-2, bH=hasDisc?42:38;
     box(ML,y,hW,bH); box(ML+hW+4,y,hW,bH);
 
     let ly=y+5;
@@ -1220,7 +1220,9 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     [["N° Cotización:",numCot],["Cliente:",cliente],["Emitido:",fechaHoy],
      ["Entrada:",entrada],["Salida:",salida],["Noches:",String(t.noches)]
     ].forEach(([lbl,val])=>{
-      txt(lbl,lx,ly,8,true); txt(String(val).length>24?String(val).slice(0,24)+"…":String(val),lv,ly,8); ly+=4.5;
+      txt(lbl,lx,ly,8,true);
+      txt(String(val).length>24?String(val).slice(0,24)+"…":String(val),lv,ly,8);
+      ly+=4.5;
     });
     if(obs){ txt("Obs.:",lx,ly,8,true); txt(obs.length>38?obs.slice(0,38)+"…":obs,lv,ly,8); }
 
@@ -1230,24 +1232,23 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     txt("Huéspedes:",rx,ry2,8,true);    txt(String(t.totalGuests),rv,ry2,8); ry2+=4.5;
     txt("Valor s/IVA:",rx,ry2,8,true);  txt(money(t.valor),rv,ry2,8); ry2+=4.5;
     if(hasDisc){
-      txt("Descuento:",rx,ry2,8,true,"#cc6600"); txt(`-${money(t.descuento)}  (${mDiscountPct}%)`,rv,ry2,8,false,"#cc6600"); ry2+=4.5;
+      txt("Descuento:",rx,ry2,8,true,"#cc6600");
+      txt(`-${money(t.descuento)} (${mDiscountPct}%)`,rv,ry2,8,false,"#cc6600"); ry2+=4.5;
     }
     txt("Base impon.:",rx,ry2,8,true); txt(money(t.baseImponible),rv,ry2,8); ry2+=4.5;
-    txt("IVA 15%:",rx,ry2,8,true);     txt(money(t.iva),rv,ry2,8); ry2+=4.5;
+    txt("IVA 15%:",rx,ry2,8,true);    txt(money(t.iva),rv,ry2,8); ry2+=4.5;
     txt("TOTAL:",rx,ry2,8,true,"#006955"); txt(money(t.total),rv,ry2,9,true,"#006955");
     y+=bH+5;
 
-    // ── KPIs ────────────────────────────────────────────────
-    const kpiList = [
-      ["Habitaciones",String(t.totalRooms),false],
-      ["Huéspedes",String(t.totalGuests),false],
-      ["Valor s/IVA",money(t.valor),false],
-      ...(hasDisc ? [["Descuento",`-${money(t.descuento)}`,false]] : [["Descuento","$0.00",false]]),
-      ["IVA 15%",money(t.iva),false],
-      ["TOTAL",money(t.total),true],
-    ];
+    // ── KPIs (6 cajas, 2 filas de 3) ────────────────────────
     const kW=CW/3-2, kH=13;
-    kpiList.forEach(([lbl,val,accent],i)=>{
+    [["Habitaciones",String(t.totalRooms),false],
+     ["Huéspedes",String(t.totalGuests),false],
+     ["Valor s/IVA",money(t.valor),false],
+     ["Descuento",hasDisc?`-${money(t.descuento)}`:"$0.00",false],
+     ["IVA 15%",money(t.iva),false],
+     ["TOTAL",money(t.total),true]
+    ].forEach(([lbl,val,accent],i)=>{
       const kx=ML+(i%3)*(kW+3), ky=y+Math.floor(i/3)*(kH+3);
       box(kx,ky,kW,kH,accent?"#e8faf6":"#f9f9f9",accent?"#b2dfdb":"#dddddd");
       txt(lbl,kx+3,ky+5,7,false,"#555555");
@@ -1256,8 +1257,9 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     y+=(kH+3)*2+4;
 
     // ── TABLA ────────────────────────────────────────────────
-    // Columnas igual que PC: #, Tipo, N.H., N.N., Valor/noche, Valor, [Desc., Valor c/Desc.,] IVA 15%, Total
-    const baseCols = [
+    // Columnas idénticas al PDF de PC (sin Habitación ni Validación)
+    // Con descuento: agrega columnas Desc. y Valor c/D.
+    const baseCols=[
       {h:"#",          w:8,  r:false},
       {h:"Tipo",       w:28, r:false},
       {h:"N.H.",       w:12, r:true },
@@ -1265,22 +1267,17 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
       {h:"Valor/noche",w:28, r:true },
       {h:"Valor",      w:22, r:true },
     ];
-    const discCols = hasDisc ? [
-      {h:"Desc.",       w:20, r:true},
-      {h:"Valor c/D.",  w:22, r:true},
-    ] : [];
-    const endCols = [
-      {h:"IVA 15%", w:22, r:true},
-      {h:"Total",   w:0,  r:true},
-    ];
-    const cols = [...baseCols, ...discCols, ...endCols];
-    cols[cols.length-1].w = CW - cols.slice(0,-1).reduce((s,c)=>s+c.w,0);
+    const discCols=hasDisc?[{h:"Desc.",w:20,r:true},{h:"Valor c/D.",w:22,r:true}]:[];
+    const endCols=[{h:"IVA 15%",w:22,r:true},{h:"Total",w:0,r:true}];
+    const cols=[...baseCols,...discCols,...endCols];
+    cols[cols.length-1].w=CW-cols.slice(0,-1).reduce((s,c)=>s+c.w,0);
 
     const thH=7, rowH=6;
     box(ML,y,CW,thH,"#f0f0f0","#dddddd");
     let cx=ML;
     cols.forEach(col=>{
-      txt(col.h,col.r?cx+col.w-1:cx+2,y+5,7,true,"#444444",col.r?"right":"left"); cx+=col.w;
+      txt(col.h,col.r?cx+col.w-1:cx+2,y+5,7,true,"#444444",col.r?"right":"left");
+      cx+=col.w;
     });
     y+=thH;
 
@@ -1302,7 +1299,8 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
       ];
       cx=ML;
       cols.forEach((col,ci)=>{
-        txt(cells[ci],col.r?cx+col.w-1:cx+2,y+4.5,8,false,"#000000",col.r?"right":"left"); cx+=col.w;
+        txt(cells[ci],col.r?cx+col.w-1:cx+2,y+4.5,8,false,"#000000",col.r?"right":"left");
+        cx+=col.w;
       });
       y+=rowH;
     });
@@ -1310,14 +1308,15 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     // Fila TOTALES
     box(ML,y,CW,rowH+1,"#e8faf6","#b2dfdb");
     txt("TOTALES",ML+2,y+5,8,true);
-    const totVals = hasDisc
-      ? [money(t.valor),`-${money(t.descuento)}`,money(t.baseImponible),money(t.iva),money(t.total)]
-      : [money(t.valor),money(t.iva),money(t.total)];
-    const totCols = hasDisc ? cols.slice(-5) : cols.slice(-3);
-    let tcx=ML+cols.slice(0,hasDisc?-5:-3).reduce((s,c)=>s+c.w,0);
-    totCols.forEach((col,i)=>{
-      const isTotal=i===totCols.length-1;
-      txt(totVals[i],tcx+col.w-1,y+5,8,true,isTotal?"#006955":"#000000","right"); tcx+=col.w;
+    const nTotCols=hasDisc?5:3;
+    const totVals=hasDisc
+      ?[money(t.valor),`-${money(t.descuento)}`,money(t.baseImponible),money(t.iva),money(t.total)]
+      :[money(t.valor),money(t.iva),money(t.total)];
+    let tcx=ML+cols.slice(0,-nTotCols).reduce((s,c)=>s+c.w,0);
+    cols.slice(-nTotCols).forEach((col,i)=>{
+      const isTotal=i===nTotCols-1;
+      txt(totVals[i],tcx+col.w-1,y+5,8,true,isTotal?"#006955":"#000000","right");
+      tcx+=col.w;
     });
     y+=rowH+6;
 
@@ -1746,5 +1745,4 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
 })();
 </script>
 </body>
-</html>
-    
+</html> 
