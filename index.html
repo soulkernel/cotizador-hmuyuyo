@@ -1348,15 +1348,15 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     // Columnas idénticas al PDF de PC (sin Habitación ni Validación)
     // Con descuento: agrega columnas Desc. y Valor c/D.
     const baseCols=[
-      {h:"#",          w:8,  r:false},
-      {h:"Tipo",       w:28, r:false},
-      {h:"N.H.",       w:12, r:true },
-      {h:"N.N.",       w:12, r:true },
-      {h:"Valor/noche",w:28, r:true },
+      {h:"#",          w:7,  r:false},
+      {h:"Tipo",       w:24, r:false},
+      {h:"N.H.",       w:9,  r:true },
+      {h:"N.N.",       w:9,  r:true },
+      {h:"Valor/noche",w:24, r:true },
       {h:"Valor",      w:22, r:true },
     ];
-    const discCols=hasDisc?[{h:"Desc.",w:20,r:true},{h:"Valor c/D.",w:22,r:true}]:[];
-    const endCols=[{h:"IVA 15%",w:22,r:true},{h:"Total",w:0,r:true}];
+    const discCols=hasDisc?[{h:"Desc.",w:21,r:true},{h:"V.c/D.",w:22,r:true}]:[];
+    const endCols=[{h:"IVA 15%",w:21,r:true},{h:"Total",w:0,r:true}];
     const cols=[...baseCols,...discCols,...endCols];
     cols[cols.length-1].w=CW-cols.slice(0,-1).reduce((s,c)=>s+c.w,0);
 
