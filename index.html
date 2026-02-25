@@ -614,12 +614,12 @@
       <div>
         <label class="m-label">Porcentaje (0–10%)</label>
         <input class="m-input" id="m_descRange" type="range" min="0" max="10" step="1" value="0"
-          oninput="$('m_descNum').value=this.value" style="accent-color:var(--accent);padding:4px 0"/>
+          oninput="document.getElementById('m_descNum').value=this.value" style="accent-color:var(--accent);padding:4px 0"/>
       </div>
       <div>
         <label class="m-label">%</label>
         <input class="m-input" id="m_descNum" type="number" min="0" max="10" step="1" value="0" inputmode="numeric"
-          oninput="$('m_descRange').value=Math.min(10,Math.max(0,this.value||0))"/>
+          oninput="document.getElementById('m_descRange').value=Math.min(10,Math.max(0,this.value||0))"/>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
@@ -1033,6 +1033,7 @@
   };
 
   window.mAddRow = function(){
+    if(mRows.length >= HAB.length) return;
     mRows.push({habId:"", guests:""});
     mRenderRows();
     mRender();
@@ -1042,29 +1043,92 @@
     const container = $("m_habsContainer");
     if(!container) return;
     container.innerHTML = "";
+    const allUsedIds = mRows.map(r=>r.habId).filter(Boolean);
+
     mRows.forEach((r, idx) => {
+      const usedByOthers = mRows.map((rr,ii)=>ii!==idx?rr.habId:"").filter(Boolean);
+
       const div = document.createElement("div");
       div.className = "m-hab-item";
-      div.innerHTML = `
-        <div class="m-hab-num">HABITACIÓN ${idx+1}</div>
-        ${mRows.length > 1 ? `<button class="m-del-btn" onclick="mDelRow(${idx})">✕</button>` : ""}
-        <div class="m-field">
-          <label class="m-label">Elegir habitación</label>
-          <select class="m-input m-select" onchange="mRowChange(${idx},'hab',this.value)">
-            <option value="">— seleccionar —</option>
-            ${HAB.map(h=>`<option value="${h.id}" ${h.id===r.habId?"selected":""}>${h.id} — ${h.tipo} (cap. ${h.capConfig})</option>`).join("")}
-          </select>
-        </div>
-        <div class="m-field">
-          <label class="m-label">N° Huéspedes</label>
-          <input class="m-input" type="number" min="1" max="${r.habId ? (getHab(r.habId)?.capMax || 10) : 10}"
-            placeholder="${r.habId ? "1.." + (getHab(r.habId)?.capMax || 10) : "Primero elige habitación"}"
-            value="${r.guests}" onchange="mRowChange(${idx},'guests',this.value)"
-            oninput="mRowChange(${idx},'guests',this.value)" inputmode="numeric"/>
-        </div>
-      `;
+
+      // Número y botón eliminar
+      const numDiv = document.createElement("div");
+      numDiv.className = "m-hab-num";
+      numDiv.textContent = `HABITACIÓN ${idx+1}`;
+      div.appendChild(numDiv);
+
+      if(mRows.length > 1){
+        const delBtn = document.createElement("button");
+        delBtn.className = "m-del-btn";
+        delBtn.textContent = "✕";
+        delBtn.onclick = ()=>mDelRow(idx);
+        div.appendChild(delBtn);
+      }
+
+      // Campo habitación
+      const fieldHab = document.createElement("div");
+      fieldHab.className = "m-field";
+      const lblHab = document.createElement("label");
+      lblHab.className = "m-label";
+      lblHab.textContent = "Elegir habitación";
+      fieldHab.appendChild(lblHab);
+
+      const sel = document.createElement("select");
+      sel.className = "m-input m-select";
+
+      const optBlank = document.createElement("option");
+      optBlank.value = "";
+      optBlank.textContent = "— seleccionar —";
+      sel.appendChild(optBlank);
+
+      HAB.forEach(h => {
+        const opt = document.createElement("option");
+        opt.value = h.id;
+        opt.textContent = `${h.id} — ${h.tipo} (cap. ${h.capConfig})`;
+        if(h.id === r.habId) opt.selected = true;
+        if(usedByOthers.includes(h.id)){
+          opt.disabled = true;
+          opt.textContent += " — ocupada";
+          opt.style.color = "#555";
+        }
+        sel.appendChild(opt);
+      });
+
+      sel.onchange = ()=>mRowChange(idx, "hab", sel.value);
+      fieldHab.appendChild(sel);
+      div.appendChild(fieldHab);
+
+      // Campo huéspedes
+      const fieldGuests = document.createElement("div");
+      fieldGuests.className = "m-field";
+      const lblGuests = document.createElement("label");
+      lblGuests.className = "m-label";
+      lblGuests.textContent = "N° Huéspedes";
+      fieldGuests.appendChild(lblGuests);
+
+      const inp = document.createElement("input");
+      inp.className = "m-input";
+      inp.type = "number";
+      inp.inputMode = "numeric";
+      inp.min = "1";
+      inp.max = r.habId ? String(getHab(r.habId)?.capMax || 10) : "10";
+      inp.placeholder = r.habId ? `1..${getHab(r.habId)?.capMax || 10}` : "Primero elige habitación";
+      inp.value = r.guests;
+      inp.onchange = ()=>mRowChange(idx, "guests", inp.value);
+      inp.oninput  = ()=>mRowChange(idx, "guests", inp.value);
+      fieldGuests.appendChild(inp);
+      div.appendChild(fieldGuests);
+
       container.appendChild(div);
     });
+
+    // Deshabilitar botón agregar si ya están todas las habitaciones
+    const addBtn = $("m_addHab");
+    if(addBtn){
+      const todasUsadas = allUsedIds.length >= HAB.length;
+      addBtn.disabled = todasUsadas;
+      addBtn.style.opacity = todasUsadas ? "0.4" : "1";
+    }
   }
 
   window.mDelRow = function(idx){
@@ -1093,6 +1157,7 @@
     const entrada = $("m_entrada")?.value || "—";
     const salida  = $("m_salida")?.value  || "—";
     const obs     = ($("m_obs")?.value || "").trim();
+    const hasDisc = mDiscountEnabled && mDiscountPct > 0;
 
     let lines = [];
     mRows.forEach(r => {
@@ -1102,13 +1167,16 @@
       const c = calcRoom(h, N);
       if(!c.ok) return;
       const valor = c.priceNoTaxNight * t.noches;
-      const iva   = valor * IVA;
-      const total = valor + iva;
+      const desc  = valor * t.descRate;
+      const base  = Math.max(0, valor - desc);
+      const iva   = base * IVA;
+      const total = base + iva;
       lines.push(`• ${h.id} (${h.tipo}): ${N} huésped(es) — Noche: ${money(c.priceNoTaxNight)} — Total: ${money(total)}`);
     });
 
     let msg =
 `COTIZACIÓN HMUYUYO
+N°: ${quoteNum || "—"}
 
 Dirección: ${HOSTAL_DIR}
 Contacto: ${CONTACT_EMAIL}
@@ -1127,7 +1195,9 @@ Huéspedes: ${t.totalGuests}
 Detalle:
 ${lines.length ? lines.join("\n") : "(sin habitaciones seleccionadas)"}
 
-Valor (sin IVA): ${money(t.valor)}
+Valor (sin IVA): ${money(t.valor)}${hasDisc ? `
+Descuento (${mDiscountPct}%): -${money(t.descuento)}
+Base imponible: ${money(t.baseImponible)}` : ""}
 IVA 15%: ${money(t.iva)}
 TOTAL: ${money(t.total)}
 
@@ -1500,7 +1570,17 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
       td0.appendChild(rm);
       const td1=document.createElement("td");
       const sel=document.createElement("select");
-      sel.innerHTML=`<option value="">— elegir —</option>`+HAB.map(x=>`<option value="${x.id}" ${x.id===r.habId?"selected":""}>${x.id}</option>`).join("");
+      const usedIds=rows.map((rr,ii)=>ii!==idx?rr.habId:"").filter(Boolean);
+      const optBlankD=document.createElement("option");
+      optBlankD.value=""; optBlankD.textContent="— elegir —";
+      sel.appendChild(optBlankD);
+      HAB.forEach(x=>{
+        const opt=document.createElement("option");
+        opt.value=x.id; opt.textContent=x.id;
+        if(x.id===r.habId) opt.selected=true;
+        if(usedIds.includes(x.id)){ opt.disabled=true; opt.textContent=x.id+" (ocupada)"; opt.style.color="#666"; }
+        sel.appendChild(opt);
+      });
       sel.onchange=(e)=>{ rows[idx].habId=e.target.value;const hh=getHab(rows[idx].habId);const gg=int(rows[idx].guests);if(hh&&gg&&gg>hh.capMax)rows[idx].guests=String(hh.capMax);render(); };
       td1.appendChild(sel);
       const td2=document.createElement("td");td2.textContent=h?h.tipo:"—";
@@ -1559,6 +1639,13 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     $("autoBox").style.display=(mode==="auto")?"block":"none";
     $("histBox").style.display=(mode==="hist")?"block":"none";
     document.body.classList.toggle("has-discount",!!(discountEnabled&&discountPct>0));
+    // Deshabilitar "Agregar habitación" si ya se usan todas
+    const addRowBtn=$("addRow");
+    if(addRowBtn){
+      const todasUsadas=rows.length>=HAB.length;
+      addRowBtn.disabled=todasUsadas;
+      addRowBtn.title=todasUsadas?"Ya se incluyeron todas las habitaciones disponibles":"";
+    }
     updatePrintHeaderFooter();
   }
 
@@ -1712,7 +1799,7 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     $("descApply").onclick=()=>{ const pct=clampDiscount($("descNumber").value);const enabled=$("descEnabled").checked;setDiscount(pct,enabled);closeDiscountModal(); };
     $("regenNum").onclick=()=>{ setQuoteNum(nextQuoteNum());updatePrintHeaderFooter(); };
     $("resetCounter").onclick=resetCounter;
-    $("addRow").onclick=()=>{ rows.push({habId:"",guests:""});render(); };
+    $("addRow").onclick=()=>{ if(rows.length<HAB.length){ rows.push({habId:"",guests:""});render(); } };
     $("autoBuild").onclick=()=>{ mode="auto";setModeUI();render();$("autoBox").scrollIntoView({behavior:"smooth",block:"start"}); };
     $("applyAuto").onclick=autoDistribute;
     $("clear").onclick=clearAll;
@@ -1745,4 +1832,4 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
 })();
 </script>
 </body>
-</html> 
+</html>
