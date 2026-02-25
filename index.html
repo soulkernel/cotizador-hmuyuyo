@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#080f1c"/>
 <title>Cotización HMuyuyo</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   /* ===== VARIABLES GLOBALES ===== */
   :root{
@@ -1096,177 +1096,148 @@ Cancelación: Sin costo hasta 48h antes del check-in.`;
     const obs         = ($("m_obs")?.value     || "").trim();
     const fechaHoy    = todayISO();
     const numCot      = quoteNum || "—";
-    const validez     = "48 horas";
-    const cancelacion = "Cancelación sin costo hasta 48 horas antes del check-in. Después aplica el 100% de la primera noche.";
 
-    /* ── KPIs ── */
-    const kpisHTML = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        ${[
-          ["Habitaciones", String(t.totalRooms), false],
-          ["Huéspedes",    String(t.totalGuests), false],
-          ["Valor s/IVA",  money(t.valor),        false],
-          ["Descuento",    "$0.00",               false],
-          ["IVA 15%",      money(t.iva),           false],
-          ["TOTAL",        money(t.total),          true]
-        ].map(([lbl,val,accent])=>`
-          <div style="background:${accent?"#e8faf6":"#f9f9f9"};border:1px solid ${accent?"#b2dfdb":"#ddd"};border-radius:10px;padding:10px 12px">
-            <div style="color:#555;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">${lbl}</div>
-            <div style="font-family:monospace;font-size:${accent?"19":"16"}px;font-weight:${accent?"700":"500"};margin-top:4px;color:${accent?"#006955":"#000"}">${val}</div>
-          </div>`).join("")}
-      </div>`;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
 
-    /* ── Filas de tabla ── */
-    let filasHTML = "";
-    mRows.forEach((r, idx) => {
-      const h = getHab(r.habId);
-      const N = int(r.guests);
-      if(!h || !N) return;
-      const c = calcRoom(h, N);
-      if(!c.ok) return;
-      const valor = c.priceNoTaxNight * t.noches;
-      const iva   = valor * IVA;
-      const total = valor + iva;
-      const td = (content, extra="") =>
-        `<td style="padding:5px 4px;border-bottom:1px solid #ddd;font-size:10.5px;${extra}">${content}</td>`;
-      filasHTML += `<tr>
-        ${td(idx+1)}
-        ${td(h.id)}
-        ${td(h.tipo)}
-        ${td(N)}
-        ${td(`Normal: ${c.normalCount} | Compartida: ${c.sharedCount}`, "text-transform:lowercase")}
-        ${td(t.noches, "text-align:right")}
-        ${td(money(c.priceNoTaxNight), "text-align:right;font-family:monospace")}
-        ${td(money(valor),             "text-align:right;font-family:monospace")}
-        ${td(money(iva),               "text-align:right;font-family:monospace")}
-        ${td(money(total),             "text-align:right;font-family:monospace;font-weight:700")}
-      </tr>`;
+    const W  = 210, ML = 14, MR = 14, CW = W - ML - MR;
+    let y = 14;
+
+    const txt = (text, x, ty, size=10, bold=false, color="#000000", align="left") => {
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setTextColor(color);
+      doc.text(String(text ?? "—"), x, ty, { align });
+    };
+    const hline = (ty, color="#111111", lw=0.4) => {
+      doc.setDrawColor(color); doc.setLineWidth(lw); doc.line(ML, ty, W-MR, ty);
+    };
+    const box = (x, by, w, h, fill="#ffffff", stroke="#cccccc") => {
+      doc.setFillColor(fill); doc.setDrawColor(stroke); doc.setLineWidth(0.3);
+      doc.roundedRect(x, by, w, h, 2, 2, "FD");
+    };
+
+    // ── ENCABEZADO ──────────────────────────────────────────────
+    txt("COTIZACIÓN HMUYUYO", ML, y, 18, true);
+    y += 7; hline(y); y += 5;
+    txt(`Dirección: ${HOSTAL_DIR}`, ML, y, 8, false, "#333333"); y += 4;
+    txt(`Contacto: ${CONTACT_EMAIL}  ·  WhatsApp: ${CONTACT_WA1} / ${CONTACT_WA2}`, ML, y, 8, false, "#333333"); y += 4;
+    txt(`Horarios: Check-in ${CHECKIN}  ·  Check-out ${CHECKOUT}`, ML, y, 8, false, "#333333"); y += 6;
+
+    // Dos bloques meta lado a lado
+    const hW = CW/2 - 2, bH = 36;
+    box(ML, y, hW, bH); box(ML+hW+4, y, hW, bH);
+
+    let ly = y+5;
+    const lx = ML+3, lv = ML+27;
+    [["N° Cotización:", numCot],["Cliente:", cliente],["Emitido:", fechaHoy],
+     ["Entrada:", entrada],["Salida:", salida],["Noches:", String(t.noches)]
+    ].forEach(([lbl,val])=>{
+      txt(lbl, lx, ly, 8, true);
+      txt(String(val).length>24?String(val).slice(0,24)+"…":String(val), lv, ly, 8);
+      ly += 4.5;
+    });
+    if(obs){ txt("Obs.:", lx, ly, 8, true); txt(obs.length>38?obs.slice(0,38)+"…":obs, lv, ly, 8); }
+
+    let ry2 = y+5;
+    const rx = ML+hW+7, rv = ML+hW+29;
+    [["Habitaciones:", String(t.totalRooms)],["Huéspedes:", String(t.totalGuests)],
+     ["Valor s/IVA:", money(t.valor)],["Base impon.:", money(t.valor)],["IVA 15%:", money(t.iva)]
+    ].forEach(([lbl,val])=>{ txt(lbl,rx,ry2,8,true); txt(val,rv,ry2,8); ry2+=4.5; });
+    txt("TOTAL:", rx, ry2, 8, true, "#006955");
+    txt(money(t.total), rv, ry2, 9, true, "#006955");
+    y += bH+5;
+
+    // ── KPIs (6 cajas, 2 filas de 3) ────────────────────────────
+    const kW = CW/3-2, kH = 13;
+    [["Habitaciones",String(t.totalRooms),false],["Huéspedes",String(t.totalGuests),false],
+     ["Valor s/IVA",money(t.valor),false],["Descuento","$0.00",false],
+     ["IVA 15%",money(t.iva),false],["TOTAL",money(t.total),true]
+    ].forEach(([lbl,val,accent],i)=>{
+      const kx=ML+(i%3)*(kW+3), ky=y+Math.floor(i/3)*(kH+3);
+      box(kx,ky,kW,kH,accent?"#e8faf6":"#f9f9f9",accent?"#b2dfdb":"#dddddd");
+      txt(lbl,kx+3,ky+5,7,false,"#555555");
+      txt(val,kx+3,ky+11,accent?10:9,true,accent?"#006955":"#000000");
+    });
+    y += (kH+3)*2+4;
+
+    // ── TABLA ────────────────────────────────────────────────────
+    // Columnas idénticas al PDF de PC (@media print oculta col2=Habitación y col5=Validación):
+    // #, Tipo, N.H., N.N., Valor/noche, Valor, IVA 15%, Total
+    const cols = [
+      {h:"#",          w:8,  r:false},
+      {h:"Tipo",       w:28, r:false},
+      {h:"N.H.",       w:12, r:true },
+      {h:"N.N.",       w:12, r:true },
+      {h:"Valor/noche",w:30, r:true },
+      {h:"Valor",      w:28, r:true },
+      {h:"IVA 15%",   w:25, r:true },
+      {h:"Total",      w:0,  r:true },
+    ];
+    cols[cols.length-1].w = CW - cols.slice(0,-1).reduce((s,c)=>s+c.w,0);
+
+    const thH=7, rowH=6;
+    box(ML, y, CW, thH, "#f0f0f0", "#dddddd");
+    let cx=ML;
+    cols.forEach(col=>{
+      txt(col.h, col.r?cx+col.w-1:cx+2, y+5, 7, true, "#444444", col.r?"right":"left");
+      cx+=col.w;
+    });
+    y+=thH;
+
+    mRows.forEach((r,idx)=>{
+      const h=getHab(r.habId); const N=int(r.guests);
+      if(!h||!N) return;
+      const c=calcRoom(h,N); if(!c.ok) return;
+      const valor=c.priceNoTaxNight*t.noches, iva=valor*IVA, total=valor+iva;
+      doc.setDrawColor("#dddddd"); doc.setLineWidth(0.2);
+      doc.line(ML,y+rowH,ML+CW,y+rowH);
+      const cells=[String(idx+1),h.tipo,String(N),String(t.noches),
+                   money(c.priceNoTaxNight),money(valor),money(iva),money(total)];
+      cx=ML;
+      cols.forEach((col,ci)=>{
+        txt(cells[ci],col.r?cx+col.w-1:cx+2,y+4.5,8,false,"#000000",col.r?"right":"left");
+        cx+=col.w;
+      });
+      y+=rowH;
     });
 
-    filasHTML += `
-      <tr style="background:#e8faf6;border-top:2px solid #333;font-weight:700">
-        <td colspan="7" style="padding:7px 4px;font-size:11px;font-weight:800;letter-spacing:.4px">TOTALES</td>
-        <td style="padding:7px 4px;text-align:right;font-family:monospace">${money(t.valor)}</td>
-        <td style="padding:7px 4px;text-align:right;font-family:monospace">${money(t.iva)}</td>
-        <td style="padding:7px 4px;text-align:right;font-family:monospace">${money(t.total)}</td>
-      </tr>`;
-
-    const obsHTML = obs
-      ? `<div><b>Observaciones:</b> ${obs.length>90?obs.slice(0,90)+"…":obs}</div>`
-      : "";
-
-    const html = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#000;background:#fff;width:100%">
-
-      <div style="border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:14px">
-        <p style="font-size:22px;font-weight:900;letter-spacing:.4px;margin:0 0 6px">COTIZACIÓN HMUYUYO</p>
-        <div style="font-size:11px;color:#333;line-height:1.6">
-          <div><b>Dirección:</b> ${HOSTAL_DIR}</div>
-          <div><b>Contacto:</b> ${CONTACT_EMAIL} · WhatsApp: ${CONTACT_WA1} / ${CONTACT_WA2}</div>
-          <div><b>Horarios:</b> Check-in ${CHECKIN} · Check-out ${CHECKOUT}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-top:10px;font-size:11px;color:#333">
-          <div style="border:1px solid #ccc;border-radius:8px;padding:10px;background:#fff">
-            <div><b>N° Cotización:</b> ${numCot}</div>
-            <div><b>Cliente:</b> ${cliente}</div>
-            <div><b>Emitido:</b> ${fechaHoy}</div>
-            <div><b>Entrada:</b> ${entrada}</div>
-            <div><b>Salida:</b> ${salida}</div>
-            <div><b>Noches:</b> ${t.noches}</div>
-            ${obsHTML}
-          </div>
-          <div style="border:1px solid #ccc;border-radius:8px;padding:10px;background:#fff">
-            <div><b>Habitaciones:</b> ${t.totalRooms}</div>
-            <div><b>Huéspedes:</b> ${t.totalGuests}</div>
-            <div><b>Valor (sin IVA):</b> ${money(t.valor)}</div>
-            <div><b>Base imponible:</b> ${money(t.valor)}</div>
-            <div><b>IVA 15%:</b> ${money(t.iva)}</div>
-            <div><b>TOTAL:</b> ${money(t.total)}</div>
-          </div>
-        </div>
-      </div>
-
-      ${kpisHTML}
-
-      <div style="border:1px solid #ddd;border-radius:8px;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="background:#f5f5f5">
-              ${["#","Habitación","Tipo","N.H.","Validación","N.N.","Valor/noche","Valor","IVA 15%","Total"]
-                .map((h,i)=>`<th style="padding:6px 4px;font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#444;border-bottom:1px solid #ddd;text-align:${i>=5?"right":"left"}">${h}</th>`)
-                .join("")}
-            </tr>
-          </thead>
-          <tbody>${filasHTML}</tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:14px;padding-top:10px;border-top:2px solid #111;font-size:11px;color:#333;line-height:1.5">
-        <div><b>Validez:</b> ${validez}</div>
-        <div style="margin-top:4px"><b>Política de cancelación:</b> ${cancelacion}</div>
-        <div style="margin-top:10px;padding-top:6px;border-top:1px solid #bbb;font-size:10px;color:#555">
-          <b>Glosario:</b> &nbsp; N.H. = Número de Huéspedes &nbsp;·&nbsp; N.N. = Número de Noches
-        </div>
-      </div>
-    </div>`;
-
-    /* ── Wrapper: visible en el viewport pero invisible al usuario ──
-       Safari/iOS requiere que el elemento esté dentro del viewport
-       para que html2canvas lo capture correctamente.            ── */
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = [
-      "position:fixed",
-      "top:0",
-      "left:0",
-      "width:794px",
-      "background:#fff",
-      "padding:24px",
-      "opacity:0",              // invisible al usuario
-      "pointer-events:none",    // no interfiere con la UI
-      "z-index:-1",
-      "overflow:hidden"
-    ].join(";");
-    wrapper.innerHTML = html;
-    document.body.appendChild(wrapper);
-
-    const nombreArchivo = "cotizacion_hmuyuyo_" + cliente.replace(/[^a-z0-9]/gi,"_") + ".pdf";
-
-    html2pdf().set({
-      margin: [10, 10, 10, 10],
-      filename: nombreArchivo,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        allowTaint: true,
-        removeContainer: false
-      },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-    }).from(wrapper).outputPdf("blob").then(blob => {
-      document.body.removeChild(wrapper);
-
-      const file = new File([blob], nombreArchivo, { type: "application/pdf" });
-
-      // iOS Share Sheet → el usuario elige WhatsApp, email, AirDrop, etc.
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        navigator.share({
-          files: [file],
-          title: "Cotización HMuyuyo",
-          text: "Adjunto la cotización."
-        }).catch(()=>{});
-      } else {
-        // Fallback descarga directa (Android / desktop)
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = nombreArchivo;
-        document.body.appendChild(a); a.click();
-        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
-      }
-    }).catch(() => {
-      if(document.body.contains(wrapper)) document.body.removeChild(wrapper);
-      alert("Error al generar el PDF. Intenta de nuevo.");
+    // Fila TOTALES
+    box(ML,y,CW,rowH+1,"#e8faf6","#b2dfdb");
+    txt("TOTALES",ML+2,y+5,8,true);
+    let tcx=ML+cols.slice(0,-3).reduce((s,c)=>s+c.w,0);
+    [money(t.valor),money(t.iva),money(t.total)].forEach((v,i)=>{
+      const col=cols[cols.length-3+i];
+      txt(v,tcx+col.w-1,y+5,8,true,i===2?"#006955":"#000000","right");
+      tcx+=col.w;
     });
+    y+=rowH+6;
+
+    // ── PIE ─────────────────────────────────────────────────────
+    hline(y); y+=5;
+    txt("Validez: 48 horas",ML,y,8,false,"#333333"); y+=4.5;
+    txt("Política de cancelación:",ML,y,8,true,"#333333"); y+=4;
+    doc.setFontSize(8); doc.setFont("helvetica","normal"); doc.setTextColor("#333333");
+    const cancelLines=doc.splitTextToSize(
+      "Cancelación sin costo hasta 48 horas antes del check-in. Después aplica el 100% de la primera noche.",CW);
+    doc.text(cancelLines,ML,y); y+=cancelLines.length*4+4;
+    hline(y,"#bbbbbb",0.2); y+=4;
+    txt("Glosario:  N.H. = Número de Huéspedes  ·  N.N. = Número de Noches",ML,y,7,false,"#555555");
+
+    // ── COMPARTIR ────────────────────────────────────────────────
+    const nombreArchivo="cotizacion_hmuyuyo_"+cliente.replace(/[^a-z0-9]/gi,"_")+".pdf";
+    const blob=doc.output("blob");
+    const file=new File([blob],nombreArchivo,{type:"application/pdf"});
+
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:"Cotización HMuyuyo"}).catch(()=>{});
+    } else {
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=nombreArchivo;
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+    }
   };
 
   window.mClear = function(){
